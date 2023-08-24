@@ -21,6 +21,12 @@ end
 status is-interactive; or return
 
 
+set --query ZELLIJ_FISH_KEYMAP_OPEN_URL; or set --global ZELLIJ_FISH_KEYMAP_OPEN_URL \eo
+set --query ZELLIJ_FISH_KEYMAP_ADD_URL_AT_CURSOR; or set --global ZELLIJ_FISH_KEYMAP_ADD_URL_AT_CURSOR \ea
+set --query ZELLIJ_FISH_KEYMAP_COPY_URL_TO_CLIPBOARD; or set --global ZELLIJ_FISH_KEYMAP_COPY_URL_TO_CLIPBOARD \ec
+set --global ZELLIJ_FISH_TITLE "zellij.fish"
+
+
 if not command --query zellij
     printf "%serror:%s %s\n" (set_color red) (set_color normal) "zellij (https://github.com/zellij-org/zellij) not installed." >&2
     return
@@ -34,8 +40,8 @@ end
 set --query ZELLIJ; or return
 
 function __zellij_update_tab_name
-    command --query zellij; or return 1
-    set --query ZELLIJ; or return 0
+    # command --query zellij; or return 1
+    # set --query ZELLIJ; or return 0
     set -l cwd (string replace --regex "^$HOME" "~" $PWD)
     set -l num_jobs (jobs | count)
     set -l title "fish: $cwd"
@@ -66,6 +72,7 @@ function __zellij_get_visible_http_urls
     end
     set --local tmpf (mktemp)
     command zellij action dump-screen $tmpf
+    # TODO: <kpbaks 2023-08-24 20:40:45> maybe strip out query params
     # NOTE: <kpbaks 2023-08-24 11:48:27> not perfect regex, but good enough
     string match --regex --all --groups-only "(https?://[^\s\"]+)" <$tmpf
     rm $tmpf
@@ -77,22 +84,15 @@ function __zellij_fuzzy_select_among_visible_http_urls --argument-names prompt
         return 1
     end
 
-    set --local title "zellij.fish"
-end
-
-function __zellij_select_among_visible_http_urls_and_open
-    if not set --query ZELLIJ
-        printf "%serror:%s %s\n" (set_color red) (set_color normal) "fish shell not inside zellij."
-        return 1
+    set --local argc (count $argv)
+    if test $argc -eq 0
+        set prompt " seclect with <tab>. "
     end
-
-    set --local title "zellij.fish"
-
 
     set --local fzf_opts \
         --reverse \
         --border \
-        --border-label=" $(string upper $title) " \
+        --border-label=" $(string upper $ZELLIJ_FISH_TITLE) " \
         --height=~50% \
         --multi \
         --cycle \
@@ -104,27 +104,33 @@ function __zellij_select_among_visible_http_urls_and_open
         --color='marker:#00ff00' \
         --color='border:#FFC143' \
         --no-mouse \
-        --prompt=" select url(s) with <tab>. press <enter> to open them in the browser. " \
+        --prompt=$prompt \
         --exit-0 \
         --header-first \
         --bind=ctrl-a:select-all
 
-
     set --local urls (__zellij_get_visible_http_urls | sort --unique)
     if test (count $urls) -eq 0
-        printf "%swarn:%s %s\n" (set_color yellow) (set_color normal) "no urls found on screen."
+        set --local msg "no urls found on screen."
+        printf "%swarn:%s %s\n" (set_color yellow) (set_color normal) $msg
         if command --query notify-send
-            command notify-send $title "no urls found on screen."
+            command notify-send $ZELLIJ_FISH_TITLE $msg
         end
         return 1
     end
     # NOTE: <kpbaks 2023-08-24 19:37:06> use `printf "%s\n" $urls` instead of `echo $urls` to ensure that each url is on a separate line
-    set --local selected_urls (printf "%s\n" $urls | fzf $fzf_opts)
-    # echo "$(count $selected_urls) urls selected."
-    # printf "%s\n" $selected_urls
-    if test (count $selected_urls) -eq 0
-        return 0
+    printf "%s\n" $urls | fzf $fzf_opts
+    return 0
+end
+
+function __zellij_fuzzy_select_among_visible_http_urls_and_open
+    if not set --query ZELLIJ
+        printf "%serror:%s %s\n" (set_color red) (set_color normal) "fish shell not inside zellij."
+        return 1
     end
+
+    set --local prompt " select url(s) with <tab>. press <enter> to open them in the browser. "
+    set --local selected_urls (__zellij_fuzzy_select_among_visible_http_urls $prompt)
 
     set --local open_cmd
     if command --query xdg-open
@@ -135,7 +141,7 @@ function __zellij_select_among_visible_http_urls_and_open
         set --local msg "xdg-open or flatpak-xdg-open not installed."
         printf "%serror:%s %s\n" (set_color red) (set_color normal) $msg
         if command --query notify-send
-            command notify-send $title $msg
+            command notify-send $ZELLIJ_FISH_TITLE $msg
         end
         printf "%s\n" $selected_urls
         return 1
@@ -146,7 +152,22 @@ function __zellij_select_among_visible_http_urls_and_open
     end
 end
 
-set --query ZELLIJ_FISH_KEYMAP_OPEN_URL; or set --export ZELLIJ_FISH_KEYMAP_OPEN_URL \eo
+function __zellij_fuzzy_select_among_visible_http_urls_and_add_at_cursor
+    set --local prompt " select url(s) with <tab>. press <enter> to add them at the cursor. "
+    set --local selected_urls (__zellij_fuzzy_select_among_visible_http_urls $prompt)
+
+    commandline --insert (string join " " $selected_urls)
+end
+
+function __zellij_fuzzy_select_among_visible_http_urls_and_copy_to_clipboard
+    set --local prompt " select url(s) with <tab>. press <enter> to copy them to the clipboard. "
+    set --local selected_urls (__zellij_fuzzy_select_among_visible_http_urls $prompt)
+
+    printf "%s\n" | fish_clipboard_copy
+end
+
 
 # bind \eo '__zellij_select_among_visible_http_urls_and_open; commandline -f repaint'
-bind $ZELLIJ_FISH_KEYMAP_OPEN_URL '__zellij_select_among_visible_http_urls_and_open; commandline --function repaint'
+bind $ZELLIJ_FISH_KEYMAP_OPEN_URL '__zellij_fuzzy_select_among_visible_http_urls_and_open; commandline --function repaint'
+bind $ZELLIJ_FISH_KEYMAP_ADD_URL_AT_CURSOR '__zellij_fuzzy_select_among_visible_http_urls_and_add_at_cursor; commandline --function repaint'
+bind $ZELLIJ_FISH_KEYMAP_COPY_URL_TO_CLIPBOARD '__zellij_fuzzy_select_among_visible_http_urls_and_copy_to_clipboard; commandline --function repaint'
