@@ -47,6 +47,7 @@ set --query ZELLIJ; or return # don't do anything if not inside zellij
 set --query ZELLIJ_FISH_KEYMAP_OPEN_URL; or set --global ZELLIJ_FISH_KEYMAP_OPEN_URL \eo # \eo is alt+o
 set --query ZELLIJ_FISH_KEYMAP_ADD_URL_AT_CURSOR; or set --global ZELLIJ_FISH_KEYMAP_ADD_URL_AT_CURSOR \ea # \ea is alt+a
 set --query ZELLIJ_FISH_KEYMAP_COPY_URL_TO_CLIPBOARD; or set --global ZELLIJ_FISH_KEYMAP_COPY_URL_TO_CLIPBOARD \ec # \ec is alt+c
+set --query ZELLIJ_FISH_USE_FULL_SCREEN; or set --global ZELLIJ_FISH_USE_FULL_SCREEN 0
 # set --query ZELLIJ_FISH_ADD_AT_CURSOR_DEFAULT_COMMAND_IF_COMMANDLINE_EMPTY
 set --query ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR
 or set --global ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR default
@@ -143,7 +144,11 @@ end
 function __zellij_fish::get_visible_http_urls
     __zellij_fish::check_is_inside_zellij; or return
     set --local tmpf (mktemp)
-    command zellij action dump-screen $tmpf
+
+    set --local options
+    test $ZELLIJ_FISH_USE_FULL_SCREEN -eq 1; and set --append options --full
+
+    command zellij action dump-screen $options $tmpf
     # TODO: <kpbaks 2023-08-24 20:40:45> maybe strip out query params
     # NOTE: <kpbaks 2023-08-24 11:48:27> not perfect regex, but good enough
     set --local regexp "(https?://[^\s\"^]+)"
