@@ -268,7 +268,7 @@ function __zellij_fish::fuzzy_select_among_visible_http_urls_and_copy_to_clipboa
     set --local selected_urls (__zellij_fish::fuzzy_select_among_visible_http_urls $prompt)
 
     printf "%s\n" $selected_urls | fish_clipboard_copy
-    set --local msg "Copied <b>%d</b> url%s to clipboard." (count $selected_urls) (test (count $selected_urls) -eq 1; and echo "s"; or echo "")
+    set --local msg (printf "Copied <b>%d</b> url%s to clipboard." (count $selected_urls) (test (count $selected_urls) -gt 1; and echo "s"; or echo ""))
     __zellij_fish::notify $msg
 end
 
