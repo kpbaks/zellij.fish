@@ -119,6 +119,7 @@ function __zellij_fish::update_tab_name
     set -l cwd (string replace --regex "^$HOME" "~" $PWD)
     set -l num_jobs (jobs | count)
     set -l title "fish: $cwd"
+    # TODO: <kpbaks 2023-08-29 16:44:55> add the status code if it is not 0
     if test $num_jobs -gt 1
         set title "$title ($num_jobs jobs)"
     else if test $num_jobs -eq 1
@@ -145,7 +146,8 @@ function __zellij_fish::get_visible_http_urls
     command zellij action dump-screen $tmpf
     # TODO: <kpbaks 2023-08-24 20:40:45> maybe strip out query params
     # NOTE: <kpbaks 2023-08-24 11:48:27> not perfect regex, but good enough
-    string match --regex --all --groups-only "(https?://[^\s\"]+)" <$tmpf
+    set --local regexp "(https?://[^\s\"^]+)"
+    string match --regex --all --groups-only $regexp <$tmpf
     rm $tmpf
 end
 
@@ -192,10 +194,10 @@ function __zellij_fish::fuzzy_select_among_visible_http_urls --argument-names pr
 end
 
 function __zellij_fish::fuzzy_select_among_visible_http_urls_and_open
-    __zellij_fish::check_is_inside_zellij; or return
-
     set --local prompt " select url(s) with <tab>. press <enter> to open them in the browser. "
     set --local selected_urls (__zellij_fish::fuzzy_select_among_visible_http_urls $prompt)
+    test $status -eq 0; or return 1 # Happens if the there are no urls on the screen
+    test (count $selected_urls) -gt 0; or return 0 # Happens if the user presses <esc> in fzf
 
     set --local open_cmd
     if command --query xdg-open
@@ -218,6 +220,8 @@ end
 function __zellij_fish::fuzzy_select_among_visible_http_urls_and_add_at_cursor
     set --local prompt " select url(s) with <tab>. press <enter> to add them at the cursor. "
     set --local selected_urls (__zellij_fish::fuzzy_select_among_visible_http_urls $prompt)
+    test $status -eq 0; or return 1 # Happens if the there are no urls on the screen
+    test (count $selected_urls) -gt 0; or return 0 # Happens if the user presses <esc> in fzf
 
     # Check if the commandline is not empty
     if test (commandline | string trim) != ""
@@ -260,6 +264,8 @@ end
 function __zellij_fish::fuzzy_select_among_visible_http_urls_and_copy_to_clipboard
     set --local prompt " select url(s) with <tab>. press <enter> to copy them to the clipboard. "
     set --local selected_urls (__zellij_fish::fuzzy_select_among_visible_http_urls $prompt)
+    test $status -eq 0; or return 1 # Happens if the there are no urls on the screen
+    test (count $selected_urls) -gt 0; or return 0 # Happens if the user presses <esc> in fzf
 
     printf "%s\n" $selected_urls | fish_clipboard_copy
     set --local msg (printf "Copied <b>%d</b> url%s to clipboard." (count $selected_urls) (test (count $selected_urls) -gt 1; and echo "s"; or echo ""))
