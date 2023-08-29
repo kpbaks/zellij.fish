@@ -140,7 +140,7 @@ function __zellij_fish::update_tab_name --argument-names last_status
     command zellij action rename-tab $title
 end
 
-__zellij_fish::update_tab_name # want to update the tab name when the shell starts
+__zellij_fish::update_tab_name 0 # want to update the tab name when the shell starts
 
 function __zellij_fish::update_tab_name_on_postexec --on-event fish_postexec
     __zellij_fish::update_tab_name $status
