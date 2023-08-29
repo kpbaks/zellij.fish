@@ -114,27 +114,36 @@ function __zellij_fish::notify --argument-names msg urgency
     end
 end
 
-function __zellij_fish::update_tab_name
+set --global __zellij_fish_previous_tab_title ""
+function __zellij_fish::update_tab_name --argument-names last_status
     # command --query zellij; or return 1
     # set --query ZELLIJ; or return 0
-    set -l cwd (string replace --regex "^$HOME" "~" $PWD)
-    set -l num_jobs (jobs | count)
-    set -l title "fish: $cwd"
-    # TODO: <kpbaks 2023-08-29 16:44:55> add the status code if it is not 0
+    set --local cwd (string replace --regex "^$HOME" "~" $PWD)
+    set --local status_component (test $last_status -eq 0; and echo ""; or echo "($last_status)")
+
+    set --local job_component ""
+    set --local num_jobs (jobs | count)
     if test $num_jobs -gt 1
-        set title "$title ($num_jobs jobs)"
+        set job_component "($num_jobs jobs)"
     else if test $num_jobs -eq 1
         jobs | read jobid group cpu state command
-        set title "$title (job: $command)"
+        set job_component "(job: $command)"
     end
 
+    set --local title (printf "fish%s: %s %s" $status_component $cwd $job_component)
+    if test $title = $__zellij_fish_previous_tab_title
+        # Skip updating the tab name if it hasn't changed
+        return 0
+    end
+
+    set --global __zellij_fish_previous_tab_title $title
     command zellij action rename-tab $title
 end
 
 __zellij_fish::update_tab_name # want to update the tab name when the shell starts
 
 function __zellij_fish::update_tab_name_on_postexec --on-event fish_postexec
-    __zellij_fish::update_tab_name
+    __zellij_fish::update_tab_name $status
 end
 
 # function __zellij_update_tab_name_when_cwd_changes --on-variable PWD
