@@ -15,9 +15,6 @@ function __zellij_fish::check_dependencies
     return 0
 end
 
-stair
-gi
-
 function _zellij_install --on-event _zellij_install
     # Set universal variables, create bindings, and other initialization logic.
     __zellij_fish::check_dependencies; or return
@@ -29,6 +26,17 @@ end
 
 function _zellij_uninstall --on-event _zellij_uninstall
     # Erase "private" functions, variables, bindings, and other uninstall logic.
+    for f in (functions --all)
+    	if string match --regex -- "^__zellij_fish::" $f
+			functions --erase $f
+		end
+	end
+
+	set | while read var val
+    		if string match --regex -- "^ZELLIJ_FISH_" $var
+			set --erase $var
+		end
+	end
 end
 
 status is-interactive; or return
