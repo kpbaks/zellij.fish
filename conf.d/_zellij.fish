@@ -27,16 +27,16 @@ end
 function _zellij_uninstall --on-event _zellij_uninstall
     # Erase "private" functions, variables, bindings, and other uninstall logic.
     for f in (functions --all)
-    	if string match --regex -- "^__zellij_fish::" $f
-			functions --erase $f
-		end
-	end
+        if string match --regex -- "^__zellij_fish::" $f
+            functions --erase $f
+        end
+    end
 
-	set | while read var val
-    		if string match --regex -- "^ZELLIJ_FISH_" $var
-			set --erase $var
-		end
-	end
+    set | while read var val
+        if string match --regex -- "^ZELLIJ_FISH_" $var
+            set --erase $var
+        end
+    end
 end
 
 status is-interactive; or return
@@ -214,50 +214,53 @@ function __zellij_fish::fuzzy_select_among_visible_http_urls_and_open
 end
 
 function __zellij_fish::fuzzy_select_among_visible_http_urls_and_add_at_cursor
-    # FIXME: <kpbaks 2023-08-26 00:57:34> does not work
-    commandline --insert "# commandline is empty\n"
-    return
     set --local prompt " select url(s) with <tab>. press <enter> to add them at the cursor. "
     set --local selected_urls (__zellij_fish::fuzzy_select_among_visible_http_urls $prompt)
 
     # Check if the commandline is not empty
-    if not string match --regex -- '^%s*$' (commandline)
+    if test (commandline | string trim) != ""
         # If it, insert all urls separated by a space at the cursor
-        # TODO: <kpbaks 2023-08-25 23:58:43> maybe append a " " to the end of the inserted text
+        # NOTE: A " " is appended to the end of the inserted text
         # to have the cursor not be directly after the last url.
-        commandline --insert (string join " " $selected_urls)
+        commandline --insert "$(string join " " $selected_urls) "
         return 0
     end
 
     # If it is, prepend $ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR to the selected urls and insert it at the cursor
     # The program could be `wget` or `curl` to download the url etc.
-    if not set --query ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR
-        set --local msg "\$ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR not set.
-Try reloading the plugin or setting it manually with `set --global ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR <command>`"
-        printf "%serror:%s %s\n" (set_color red) (set_color normal) $msg >&2
-        __zellij_fish::notify $msg
-        return 1
-    end
+    #     if not set --query ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR
+    #         set --local msg "\$ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR not set.
+    # Try reloading the plugin or setting it manually with `set --global ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR <command>`"
+    #         printf "%serror:%s %s\n" (set_color red) (set_color normal) $msg >&2
+    #         __zellij_fish::notify $msg
+    #         return 1
+    #     end
 
 
     set --local text_to_insert
 
     # TODO: <kpbaks 2023-08-26 00:53:24> maybe do something special if only 1 url is selected
+    set --local default_cmd $ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR
+    if test $ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR = default
+        set default_cmd (__zellij_fish::get_default_download_cmd)
+    end
 
-    switch $ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR
-        case default
-            set --local default_cmd (__zellij_fish::get_default_download_cmd)
-            switch $default_cmd
-                case curl
-                    set --local options "-sSL -O"
-                    set text_to_insert (string join " " command curl $options $selected_urls)
-                case wget
-                    set --local options -qO-
-                    set text_to_insert (string join " " command wget $options $selected_urls)
-            end
-        case wget
+    set --local command
+    set --local options
+    switch $default_cmd
         case curl
+            set --local options "-sSL -O"
+            # set text_to_insert (string join " " command curl $options $selected_urls)
+            set text_to_insert "command curl $options $selected_urls"
+        case wget
+            set --local options -qO-
+            set text_to_insert "command wget $options $selected_urls"
+
         case '*'
+            set --local msg "Unknown default command: $default_cmd"
+            printf "%serror:%s %s\n" (set_color red) (set_color normal) $msg >&2
+            __zellij_fish::notify $msg
+            return 1
     end
 
     commandline --insert $text_to_insert
