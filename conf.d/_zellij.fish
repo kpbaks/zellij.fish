@@ -157,6 +157,7 @@ function __zellij_fish::fuzzy_select_among_visible_http_urls --argument-names pr
         set prompt " select with <tab>. "
     end
 
+    # NOTE: <kpbaks 2023-08-29 14:16:02> -1 is to get a transparent background
     set --local fzf_opts \
         --reverse \
         --border \
@@ -171,6 +172,7 @@ function __zellij_fish::fuzzy_select_among_visible_http_urls --argument-names pr
         --marker='✓ ' \
         --color='marker:#00ff00' \
         --color='border:#FFC143' \
+        --color="gutter:-1" \
         --no-mouse \
         --prompt=$prompt \
         --exit-0 \
@@ -226,20 +228,9 @@ function __zellij_fish::fuzzy_select_among_visible_http_urls_and_add_at_cursor
         return 0
     end
 
-    # If it is, prepend $ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR to the selected urls and insert it at the cursor
-    # The program could be `wget` or `curl` to download the url etc.
-    #     if not set --query ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR
-    #         set --local msg "\$ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR not set.
-    # Try reloading the plugin or setting it manually with `set --global ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR <command>`"
-    #         printf "%serror:%s %s\n" (set_color red) (set_color normal) $msg >&2
-    #         __zellij_fish::notify $msg
-    #         return 1
-    #     end
-
-
+    # TODO: <kpbaks 2023-08-26 00:53:24> maybe do something special if only 1 url is selected
     set --local text_to_insert
 
-    # TODO: <kpbaks 2023-08-26 00:53:24> maybe do something special if only 1 url is selected
     set --local default_cmd $ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR
     if test $ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR = default
         set default_cmd (__zellij_fish::get_default_download_cmd)
@@ -249,13 +240,13 @@ function __zellij_fish::fuzzy_select_among_visible_http_urls_and_add_at_cursor
     set --local options
     switch $default_cmd
         case curl
-            set --local options "-sSL -O"
+            # set --local options "-sSL -O"
+            set --local options -sSL
             # set text_to_insert (string join " " command curl $options $selected_urls)
             set text_to_insert "command curl $options $selected_urls"
         case wget
             set --local options -qO-
             set text_to_insert "command wget $options $selected_urls"
-
         case '*'
             set --local msg "Unknown default command: $default_cmd"
             printf "%serror:%s %s\n" (set_color red) (set_color normal) $msg >&2
@@ -276,6 +267,8 @@ function __zellij_fish::fuzzy_select_among_visible_http_urls_and_copy_to_clipboa
 end
 
 # TODO: <kpbaks 2023-08-26 00:16:39> Check if the keymap is already bound to something else. If it is print a warning.
-bind $ZELLIJ_FISH_KEYMAP_OPEN_URL '__zellij_fish::fuzzy_select_among_visible_http_urls_and_open; commandline --function repaint'
-bind $ZELLIJ_FISH_KEYMAP_ADD_URL_AT_CURSOR '__zellij_fish::fuzzy_select_among_visible_http_urls_and_add_at_cursor; commandline --function repaint'
-bind $ZELLIJ_FISH_KEYMAP_COPY_URL_TO_CLIPBOARD '__zellij_fish::fuzzy_select_among_visible_http_urls_and_copy_to_clipboard; commandline --function repaint'
+# set --local mode zellij
+
+bind --user $ZELLIJ_FISH_KEYMAP_OPEN_URL '__zellij_fish::fuzzy_select_among_visible_http_urls_and_open; commandline --function repaint'
+bind --user $ZELLIJ_FISH_KEYMAP_ADD_URL_AT_CURSOR '__zellij_fish::fuzzy_select_among_visible_http_urls_and_add_at_cursor; commandline --function repaint'
+bind --user $ZELLIJ_FISH_KEYMAP_COPY_URL_TO_CLIPBOARD '__zellij_fish::fuzzy_select_among_visible_http_urls_and_copy_to_clipboard; commandline --function repaint'
