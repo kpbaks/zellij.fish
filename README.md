@@ -23,7 +23,7 @@ fisher install kpbaks/zellij.fish
 
 ## Customization
 
-The following variables can be changed to customize the plugin:
+The following variables can be changed to customize the plugin: 0 and 1 are used to represent false and true respectively. `\e` is used to represent the alt key in fish keybinds. To use ctrl instead of alt, use `\c` instead of `\e`.
 
 | Variable                  | Default   | Description                                                                                                                                 | Constraints                                                                        |
 | ------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
@@ -31,3 +31,4 @@ The following variables can be changed to customize the plugin:
 | `ZELLIJ_FISH_KEYMAP_ADD_URL_AT_CURSOR` | `\ea`   | The keybind to open the fuzzy search for file paths and append the selected url(s) at the cursor position.                                                                                              | Must be a valid keybind understood by `bind`                                                            |
 | `ZELLIJ_FISH_KEYMAP_COPY_URL_TO_CLIPBOARD` | `\ec`   | The keybind to open the fuzzy search for file paths and copy the selected url(s) to the clipboard.                                                                                              | Must be a valid keybind understood by `bind`                                                            |
 | `ZELLIJ_FISH_USE_FULL_SCREEN` | `0` | Whether to use the entire scrollback buffer for the fuzzy search or only the visible part of the screen.                                                                                              | Either `0` or `1` |
+| `ZELLIJ_FISH_RENAME_TAB_TITLE` | `1` | Whether to rename the tab title after each command.                                                                                              | Either `0` or `1` |

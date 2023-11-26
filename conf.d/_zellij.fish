@@ -40,14 +40,15 @@ function _zellij_uninstall --on-event _zellij_uninstall
 end
 
 status is-interactive; or return
-__zellij_fish::check_dependencies; or return
 set --query ZELLIJ; or return # don't do anything if not inside zellij
+__zellij_fish::check_dependencies; or return
 
 # NOTE: <kpbaks 2023-08-26 00:14:41> Use ZELLIJ_FISH as a namespace prefix for all variables to avoid name collisions.
 set --query ZELLIJ_FISH_KEYMAP_OPEN_URL; or set --global ZELLIJ_FISH_KEYMAP_OPEN_URL \eo # \eo is alt+o
 set --query ZELLIJ_FISH_KEYMAP_ADD_URL_AT_CURSOR; or set --global ZELLIJ_FISH_KEYMAP_ADD_URL_AT_CURSOR \ea # \ea is alt+a
 set --query ZELLIJ_FISH_KEYMAP_COPY_URL_TO_CLIPBOARD; or set --global ZELLIJ_FISH_KEYMAP_COPY_URL_TO_CLIPBOARD \ec # \ec is alt+c
 set --query ZELLIJ_FISH_USE_FULL_SCREEN; or set --global ZELLIJ_FISH_USE_FULL_SCREEN 0
+set --query ZELLIJ_FISH_RENAME_TAB_TITLE; or set --global ZELLIJ_FISH_RENAME_TAB_TITLE 0
 # set --query ZELLIJ_FISH_ADD_AT_CURSOR_DEFAULT_COMMAND_IF_COMMANDLINE_EMPTY
 set --query ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR
 or set --global ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR default
@@ -116,8 +117,6 @@ end
 
 set --global __zellij_fish_previous_tab_title ""
 function __zellij_fish::update_tab_name --argument-names last_status
-    # command --query zellij; or return 1
-    # set --query ZELLIJ; or return 0
     set --local cwd (string replace --regex "^$HOME" "~" $PWD)
     set --local status_component (test $last_status -eq 0; and echo ""; or echo "($last_status)")
 
@@ -140,15 +139,19 @@ function __zellij_fish::update_tab_name --argument-names last_status
     command zellij action rename-tab $title
 end
 
-__zellij_fish::update_tab_name 0 # want to update the tab name when the shell starts
+if test $ZELLIJ_FISH_RENAME_TAB_TITLE -eq 1
+    __zellij_fish::update_tab_name 0 # want to update the tab name when the shell starts
 
-function __zellij_fish::update_tab_name_on_postexec --on-event fish_postexec
-    __zellij_fish::update_tab_name $status
+    function __zellij_fish::update_tab_name_on_postexec --on-event fish_postexec
+        __zellij_fish::update_tab_name $status
+    end
+
+    # TODO: <kpbaks 2023-09-06 11:23:58> update the title with the command about to be executed $argv
+    # function __zellij_fish::update_tab_title_on_preexec --on-event fish_preexec
+    # 	set --global __zellij_fish_previous_tab_title ""
+    # end
 end
 
-# function __zellij_update_tab_name_when_cwd_changes --on-variable PWD
-# 	__update_zellij_tab_name
-# end
 
 function __zellij_fish::get_visible_http_urls
     __zellij_fish::check_is_inside_zellij; or return
