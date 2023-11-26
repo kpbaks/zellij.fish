@@ -32,11 +32,11 @@ function _zellij_uninstall --on-event _zellij_uninstall
         end
     end
 
-    set | while read var val
-        if string match --regex -- "^ZELLIJ_FISH_" $var
-            set --erase $var
-        end
-    end
+    # set | while read var val
+    #     if string match --regex -- "^ZELLIJ_FISH_" $var
+    #         set --erase $var
+    #     end
+    # end
 end
 
 status is-interactive; or return
@@ -48,7 +48,7 @@ set --query ZELLIJ_FISH_KEYMAP_OPEN_URL; or set --global ZELLIJ_FISH_KEYMAP_OPEN
 set --query ZELLIJ_FISH_KEYMAP_ADD_URL_AT_CURSOR; or set --global ZELLIJ_FISH_KEYMAP_ADD_URL_AT_CURSOR \ea # \ea is alt+a
 set --query ZELLIJ_FISH_KEYMAP_COPY_URL_TO_CLIPBOARD; or set --global ZELLIJ_FISH_KEYMAP_COPY_URL_TO_CLIPBOARD \ec # \ec is alt+c
 set --query ZELLIJ_FISH_USE_FULL_SCREEN; or set --global ZELLIJ_FISH_USE_FULL_SCREEN 0
-set --query ZELLIJ_FISH_RENAME_TAB_TITLE; or set --global ZELLIJ_FISH_RENAME_TAB_TITLE 0
+set --query ZELLIJ_FISH_RENAME_TAB_TITLE; or set --global ZELLIJ_FISH_RENAME_TAB_TITLE 1
 # set --query ZELLIJ_FISH_ADD_AT_CURSOR_DEFAULT_COMMAND_IF_COMMANDLINE_EMPTY
 set --query ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR
 or set --global ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR default
