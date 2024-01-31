@@ -84,7 +84,7 @@ status is-interactive; or return 0
 set --query ZELLIJ; or return 0 # don't do anything if not inside zellij
 __zellij.fish::check_dependencies; or return 0
 
-# NOTE: <kpbaks 2023-08-26 00:14:41> Use ZELLIJ_FISH as a namespace prefix for all variables to avoid name collisions.
+# NOTE: Use ZELLIJ_FISH as a namespace prefix for all variables to avoid name collisions.
 set --query ZELLIJ_FISH_KEYMAP_OPEN_URL; or set --global ZELLIJ_FISH_KEYMAP_OPEN_URL \eo # \eo is alt+o
 set --query ZELLIJ_FISH_KEYMAP_ADD_URL_AT_CURSOR; or set --global ZELLIJ_FISH_KEYMAP_ADD_URL_AT_CURSOR \ea # \ea is alt+a
 set --query ZELLIJ_FISH_KEYMAP_COPY_URL_TO_CLIPBOARD; or set --global ZELLIJ_FISH_KEYMAP_COPY_URL_TO_CLIPBOARD \ec # \ec is alt+c
@@ -201,16 +201,29 @@ function __zellij.fish::get_visible_paths
     # test $ZELLIJ_FISH_USE_FULL_SCREEN -eq 1; and set --append options --full
     command zellij action dump-screen $options $tmpf
 
-    # A path is any string starting with
-    # - "\b~/"
-    # - "\b/"
-    # - "\b./"
-    set -l regexp "(\b[~.]?/\S+)"
-    string match --regex --all --groups-only $regexp <$tmpf
+    # FIXME: does not capture every true positive yet
+    string match --all --regex --groups-only "(\S+[^/])" <$tmpf \
+        | while read p
+        # Only output paths that exists
+        test -e $p; and echo $p
+    end \
+        | sort --unique
 
     command rm $tmpf
 end
 
+
+function __zellij.fish::get_visible_dirs
+    __zellij.fish::get_visible_paths | while read p
+        test -d $p; and echo $p
+    end
+end
+
+function __zellij.fish::get_visible_files
+    __zellij.fish::get_visible_paths | while read p
+        test -f $p; and echo $p
+    end
+end
 
 function __zellij.fish::get_visible_http_urls
     __zellij.fish::is_inside_zellij; or return
@@ -347,19 +360,19 @@ function __zellij.fish::fuzzy_select_visible_http_urls_and_copy_to_clipboard
     test (count $selected_urls) -gt 0; or return 10 # Happens if the user presses <esc> in fzf
 
     printf "%s\n" $selected_urls | fish_clipboard_copy
-    set -l msg (printf "Copied <b>%d</b> url%s to clipboard." (count $selected_urls) (test (count $selected_urls) -gt 1; and echo "s"; or echo ""))
-    __zellij.fish::notify $msg
+    # set -l msg (printf "Copied <b>%d</b> url%s to clipboard." (count $selected_urls) (test (count $selected_urls) -gt 1; and echo "s"; or echo ""))
+    # __zellij.fish::notify $msg
 end
 
 # TODO: <kpbaks 2023-08-26 00:16:39> Check if the keymap is already bound to something else. If it is print a warning.
 # set -l mode zellij
 
-bind --user $ZELLIJ_FISH_KEYMAP_OPEN_URL '__zellij.fish::fuzzy_select_visible_http_urls_and_open'_in_browser
-bind --user $ZELLIJ_FISH_KEYMAP_ADD_URL_AT_CURSOR '__zellij.fish::fuzzy_select_visible_http_urls_and_add_at_cursor'
-bind --user $ZELLIJ_FISH_KEYMAP_COPY_URL_TO_CLIPBOARD '__zellij.fish::fuzzy_select_visible_http_urls_and_copy_to_clipboard'
+# bind --user $ZELLIJ_FISH_KEYMAP_OPEN_URL '__zellij.fish::fuzzy_select_visible_http_urls_and_open'_in_browser
+# bind --user $ZELLIJ_FISH_KEYMAP_ADD_URL_AT_CURSOR '__zellij.fish::fuzzy_select_visible_http_urls_and_add_at_cursor'
+# bind --user $ZELLIJ_FISH_KEYMAP_COPY_URL_TO_CLIPBOARD '__zellij.fish::fuzzy_select_visible_http_urls_and_copy_to_clipboard'
 
 function __zellij.fish::fuzzy_select_visible_http_urls_and
-    set -l actions open_url_in_browser append_at_cursor copy_to_clipboard
+    set -l actions open_urls_in_browser append_urls_at_cursor copy_urls_to_clipboard
     set -l fzf_opts \
         --reverse \
         --border \
@@ -377,18 +390,18 @@ function __zellij.fish::fuzzy_select_visible_http_urls_and
     # TODO: somehow check if are any urls visible. If not print a warning
     set -l selected_action (printf "%s\n" $actions | fzf $fzf_opts)
     commandline --function repaint
-    # TODO: if user presses <esc> then "go one menu back" instead of quitting totally
+    # If user presses <esc> then "go one menu back" instead of quitting totally
     # TODO: make return code 10 less brittle
     switch $selected_action
-        case open_url_in_browser
+        case open_urls_in_browser
             __zellij.fish::fuzzy_select_visible_http_urls_and_open_in_browser
             test $status -eq 10; and eval (status function)
 
-        case append_at_cursor
+        case append_urls_at_cursor
             __zellij.fish::fuzzy_select_visible_http_urls_and_add_at_cursor
             test $status -eq 10; and eval (status function)
 
-        case copy_to_clipboard
+        case copy_urls_to_clipboard
             __zellij.fish::fuzzy_select_visible_http_urls_and_copy_to_clipboard
             test $status -eq 10; and eval (status function)
 
