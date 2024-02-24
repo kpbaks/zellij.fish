@@ -1,8 +1,8 @@
-# NOTE: <kpbaks 2023-08-26 00:24:13> `__zellij.fish::` is used as a namespace prefix for all functions in this file
+# NOTE: <kpbaks 2023-08-26 00:24:13> `__zellij::` is used as a namespace prefix for all functions in this file
 # to avoid name collisions and to be "hidden" from the user. That is, it seems very improbable that a user would
 # have any other function or program on their system with the same prefix, leading to some annoyance
 # when tab completing function names in interactive mode.
-function __zellij.fish::check_dependencies
+function __zellij::check_dependencies
     if not command --query zellij
         printf "%serror:%s %s\n" (set_color red) (set_color normal) "zellij (https://github.com/zellij-org/zellij) not installed." >&2
         return 1
@@ -15,20 +15,20 @@ function __zellij.fish::check_dependencies
     return 0
 end
 
-function __zellij.fish::on::install --on-event zellij_install
+function __zellij::on::install --on-event zellij_install
     # Set universal variables, create bindings, and other initialization logic.
-    __zellij.fish::check_dependencies
+    __zellij::check_dependencies
 end
 
-function __zellij.fish::on::update --on-event zellij_update
+function __zellij::on::update --on-event zellij_update
     # Migrate resources, print warnings, and other update logic.
     # echo
 end
 
-function __zellij.fish::on::uninstall --on-event zellij_uninstall
+function __zellij::on::uninstall --on-event zellij_uninstall
     # Erase "private" functions, variables, bindings, and other uninstall logic.
     for f in (functions --all)
-        if string match --regex --quiet -- "^__zellij.fish::" $f
+        if string match --regex --quiet -- "^__zellij::" $f
             functions --erase $f
         end
     end
@@ -69,7 +69,7 @@ function abbr_zellij
     echo $expansion
 end
 
-function __zellij.fish::abbr::list -d "list all abbreviations in zellij.fish"
+function __zellij::abbr::list -d "list all abbreviations in zellij.fish"
     string match --regex "^abbr -a.*" <(status filename) | fish_indent --ansi
 end
 
@@ -82,7 +82,7 @@ abbr -a zrf zellij run --floating --
 
 status is-interactive; or return 0
 set --query ZELLIJ; or return 0 # don't do anything if not inside zellij
-__zellij.fish::check_dependencies; or return 0
+__zellij::check_dependencies; or return 0
 
 # NOTE: Use ZELLIJ_FISH as a namespace prefix for all variables to avoid name collisions.
 set --query ZELLIJ_FISH_KEYMAP_OPEN_URL; or set --global ZELLIJ_FISH_KEYMAP_OPEN_URL \eo # \eo is alt+o
@@ -97,15 +97,15 @@ set --global ZELLIJ_FISH_TITLE "zellij.fish" # Used for notifications and the bo
 
 
 
-function __zellij.fish::is_inside_zellij
+function __zellij::is_inside_zellij
     if not set --query ZELLIJ
-        printf "%serror%s: %s\n" (set_color red) (set_color normal) "fish shell not inside zellij." >&2
+        printf "%serror%s: fish shell not inside zellij.\n" (set_color red) (set_color normal) >&2
         return 1
     end
     return 0
 end
 
-function __zellij.fish::get_default_download_cmd
+function __zellij::get_default_download_cmd
     set -l candidates curl wget # aria2c
     for candidate in $candidates
         if command --query $candidate
@@ -118,7 +118,7 @@ function __zellij.fish::get_default_download_cmd
     return 1
 end
 
-function __zellij.fish::notify --argument-names msg urgency
+function __zellij::notify --argument-names msg urgency
     if not command --query notify-send
         printf "%s%s%s:%s%s%s %error:%s %s\n" \
             (set_color yellow) (status current-filename) (set_color normal) \
@@ -156,45 +156,83 @@ function __zellij.fish::notify --argument-names msg urgency
     end
 end
 
-set --global __zellij_fish_previous_tab_title ""
-function __zellij.fish::update_tab_name --argument-names last_status
-    set -l cwd (string replace --regex "^$HOME" "~" $PWD)
-    set -l status_component (test $last_status -eq 0; and echo ""; or echo "($last_status)")
-
-    set -l job_component ""
-    set -l num_jobs (jobs | count)
-    if test $num_jobs -gt 1
-        set job_component "($num_jobs jobs)"
-    else if test $num_jobs -eq 1
-        jobs | read jobid group cpu state command
-        set job_component "(job: $command)"
-    end
-
-    set -l title (printf "fish%s: %s %s" $status_component $cwd $job_component)
-    if test $title = $__zellij_fish_previous_tab_title
-        # Skip updating the tab name if it hasn't changed
+# TODO: improve and write test cases
+function __zellij::abbreviate_path -a path
+    if test $path = $HOME
+        printf '~\n'
         return 0
     end
+    if string match --quiet "$HOME/*" $path
+        printf '~'
+        set path (string sub --start=(math (string length $HOME) + 2) $path)
+    end
+    printf /
+    set -l dirs (string split / $path)
+    switch (count $dirs)
+        case 1
+            printf '%s' $dirs[1]
+        case '*'
+            for dir in $dirs[..-2]
+                # echo $dir
+                printf '%s/' (string sub --end=1 $dir)
+            end
+            printf '%s' $dirs[-1]
+    end
+    printf '\n'
+    # printf '%s' $path
+end
 
-    set --global __zellij_fish_previous_tab_title $title
-    command zellij action rename-tab $title
+set --global __zellij_fish_previous_tab_title ""
+function __zellij::update_tab_name --argument-names last_status
+    # set -l cwd (string replace --regex "^$HOME" "~" $PWD)
+    # set -l cwd (prompt_cwd)
+    # set -l status_component (test $last_status -eq 0; and echo ""; or echo "($last_status)")
+
+    # set -l job_component ""
+    # set -l num_jobs (jobs | count)
+    # if test $num_jobs -gt 1
+    #     set job_component "($num_jobs jobs)"
+    # else if test $num_jobs -eq 1
+    #     jobs | read jobid group cpu state command
+    #     set job_component "(job: $command)"
+    # end
+
+    # set -l title (printf "><>%s: %s %s" $status_component (prompt_cwd) $job_component)
+    # if test $title = $__zellij_fish_previous_tab_title
+    #     # Skip updating the tab name if it hasn't changed
+    #     return 0
+    # end
+
+    # set --global __zellij_fish_previous_tab_title $title
+
+    # TODO: why does prompt_pwd not work when in a subshell
+    # command zellij action rename-tab (prompt_cwd)
+    command zellij action rename-tab (__zellij::abbreviate_path $PWD)
 end
 
 if test $ZELLIJ_FISH_RENAME_TAB_TITLE -eq 1
-    __zellij.fish::update_tab_name 0 # want to update the tab name when the shell starts
+    __zellij::update_tab_name 0 # want to update the tab name when the shell starts
 
-    function __zellij.fish::update_tab_name_on_postexec --on-event fish_postexec
-        __zellij.fish::update_tab_name $status
+    function __zellij::update_tab_name_when_PWD_changes --on-variable PWD
+        __zellij::update_tab_name $status
     end
 
+    # function __zellij::update_tab_name_on_postexec --on-event fish_postexec
+    # function __zellij::update_tab_name_on_postexec --on-event fish_preexec
+    #     # TODO: maybe show the command that is about to be run, but exclude common commands like `pwd`, `cd`, `rm`, `mv`, etc.
+    #     # TODO: when in an editor like `hx` to not show the path component as well for the dir
+    #     # $argv
+    #     __zellij::update_tab_name $status
+    # end
+
     # TODO: <kpbaks 2023-09-06 11:23:58> update the title with the command about to be executed $argv
-    # function __zellij.fish::update_tab_title_on_preexec --on-event fish_preexec
+    # function __zellij::update_tab_title_on_preexec --on-event fish_preexec
     # 	set --global __zellij.fish_previous_tab_title ""
     # end
 end
 
-function __zellij.fish::get_visible_paths
-    # __zellij.fish::is_inside_zellij; or return
+function __zellij::get_visible_paths
+    # __zellij::is_inside_zellij; or return
     set -l tmpf (mktemp)
 
     set -l options
@@ -213,20 +251,20 @@ function __zellij.fish::get_visible_paths
 end
 
 
-function __zellij.fish::get_visible_dirs
-    __zellij.fish::get_visible_paths | while read p
+function __zellij::get_visible_dirs
+    __zellij::get_visible_paths | while read p
         test -d $p; and echo $p
     end
 end
 
-function __zellij.fish::get_visible_files
-    __zellij.fish::get_visible_paths | while read p
+function __zellij::get_visible_files
+    __zellij::get_visible_paths | while read p
         test -f $p; and echo $p
     end
 end
 
-function __zellij.fish::get_visible_http_urls
-    __zellij.fish::is_inside_zellij; or return
+function __zellij::get_visible_http_urls
+    __zellij::is_inside_zellij; or return
     set -l tmpf (mktemp)
 
     set -l options
@@ -240,8 +278,8 @@ function __zellij.fish::get_visible_http_urls
     command rm $tmpf
 end
 
-function __zellij.fish::fuzzy_select_visible_http_urls --argument-names prompt
-    __zellij.fish::is_inside_zellij; or return
+function __zellij::fuzzy_select_visible_http_urls --argument-names prompt
+    __zellij::is_inside_zellij; or return
 
     set -l argc (count $argv)
     if test (count $argv) -eq 0
@@ -271,11 +309,11 @@ function __zellij.fish::fuzzy_select_visible_http_urls --argument-names prompt
         --header-first \
         --bind=ctrl-a:select-all
 
-    set -l urls (__zellij.fish::get_visible_http_urls | sort --unique)
+    set -l urls (__zellij::get_visible_http_urls | sort --unique)
     if test (count $urls) -eq 0
         set -l msg "no urls found on screen."
         printf "%swarn:%s %s\n" (set_color yellow) (set_color normal) $msg
-        __zellij.fish::notify $msg
+        __zellij::notify $msg
         return 1
     end
     # TODO: colorize each url e.g. color the "https://" part
@@ -283,9 +321,9 @@ function __zellij.fish::fuzzy_select_visible_http_urls --argument-names prompt
     return 0
 end
 
-function __zellij.fish::fuzzy_select_visible_http_urls_and_open_in_browser
+function __zellij::fuzzy_select_visible_http_urls_and_open_in_browser
     set -l prompt "select url(s) with <tab>. press <enter> to open them in the browser. "
-    set -l selected_urls (__zellij.fish::fuzzy_select_visible_http_urls $prompt)
+    set -l selected_urls (__zellij::fuzzy_select_visible_http_urls $prompt)
     test $status -eq 0; or return 1 # Happens if the there are no urls on the screen
     test (count $selected_urls) -gt 0; or return 10 # Happens if the user presses <esc> in fzf
 
@@ -299,7 +337,7 @@ function __zellij.fish::fuzzy_select_visible_http_urls_and_open_in_browser
     else
         set -l msg "open and xdg-open and flatpak-xdg-open not installed."
         printf "%serror:%s %s\n" (set_color red) (set_color normal) $msg >&2
-        __zellij.fish::notify $msg
+        __zellij::notify $msg
         printf "%s\n" $selected_urls
         return 1
     end
@@ -309,9 +347,9 @@ function __zellij.fish::fuzzy_select_visible_http_urls_and_open_in_browser
     end
 end
 
-function __zellij.fish::fuzzy_select_visible_http_urls_and_add_at_cursor
+function __zellij::fuzzy_select_visible_http_urls_and_add_at_cursor
     set -l prompt "select url(s) with <tab>. press <enter> to add them at the cursor. "
-    set -l selected_urls (__zellij.fish::fuzzy_select_visible_http_urls $prompt)
+    set -l selected_urls (__zellij::fuzzy_select_visible_http_urls $prompt)
     test $status -eq 0; or return 1 # Happens if the there are no urls on the screen
     test (count $selected_urls) -gt 0; or return 10 # Happens if the user presses <esc> in fzf
 
@@ -329,7 +367,7 @@ function __zellij.fish::fuzzy_select_visible_http_urls_and_add_at_cursor
 
     set -l default_cmd $ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR
     if test $ZELLIJ_FISH_DEFAULT_CMD_IF_COMMANDLINE_EMPTY_FOR_ADD_AT_CURSOR = default
-        set default_cmd (__zellij.fish::get_default_download_cmd)
+        set default_cmd (__zellij::get_default_download_cmd)
     end
 
     set -l command
@@ -346,32 +384,32 @@ function __zellij.fish::fuzzy_select_visible_http_urls_and_add_at_cursor
         case '*'
             set -l msg "Unknown default command: $default_cmd"
             printf "%serror:%s %s\n" (set_color red) (set_color normal) $msg >&2
-            __zellij.fish::notify $msg
+            __zellij::notify $msg
             return 1
     end
 
     commandline --insert $text_to_insert
 end
 
-function __zellij.fish::fuzzy_select_visible_http_urls_and_copy_to_clipboard
+function __zellij::fuzzy_select_visible_http_urls_and_copy_to_clipboard
     set -l prompt "select url(s) with <tab>. press <enter> to copy them to the clipboard. "
-    set -l selected_urls (__zellij.fish::fuzzy_select_visible_http_urls $prompt)
+    set -l selected_urls (__zellij::fuzzy_select_visible_http_urls $prompt)
     test $status -eq 0; or return 1 # Happens if the there are no urls on the screen
     test (count $selected_urls) -gt 0; or return 10 # Happens if the user presses <esc> in fzf
 
     printf "%s\n" $selected_urls | fish_clipboard_copy
     # set -l msg (printf "Copied <b>%d</b> url%s to clipboard." (count $selected_urls) (test (count $selected_urls) -gt 1; and echo "s"; or echo ""))
-    # __zellij.fish::notify $msg
+    # __zellij::notify $msg
 end
 
 # TODO: <kpbaks 2023-08-26 00:16:39> Check if the keymap is already bound to something else. If it is print a warning.
 # set -l mode zellij
 
-# bind --user $ZELLIJ_FISH_KEYMAP_OPEN_URL '__zellij.fish::fuzzy_select_visible_http_urls_and_open'_in_browser
-# bind --user $ZELLIJ_FISH_KEYMAP_ADD_URL_AT_CURSOR '__zellij.fish::fuzzy_select_visible_http_urls_and_add_at_cursor'
-# bind --user $ZELLIJ_FISH_KEYMAP_COPY_URL_TO_CLIPBOARD '__zellij.fish::fuzzy_select_visible_http_urls_and_copy_to_clipboard'
+# bind --user $ZELLIJ_FISH_KEYMAP_OPEN_URL '__zellij::fuzzy_select_visible_http_urls_and_open'_in_browser
+# bind --user $ZELLIJ_FISH_KEYMAP_ADD_URL_AT_CURSOR '__zellij::fuzzy_select_visible_http_urls_and_add_at_cursor'
+# bind --user $ZELLIJ_FISH_KEYMAP_COPY_URL_TO_CLIPBOARD '__zellij::fuzzy_select_visible_http_urls_and_copy_to_clipboard'
 
-function __zellij.fish::fuzzy_select_visible_http_urls_and
+function __zellij::fuzzy_select_visible_http_urls_and
     set -l actions open_urls_in_browser append_urls_at_cursor copy_urls_to_clipboard
     set -l fzf_opts \
         --reverse \
@@ -394,15 +432,15 @@ function __zellij.fish::fuzzy_select_visible_http_urls_and
     # TODO: make return code 10 less brittle
     switch $selected_action
         case open_urls_in_browser
-            __zellij.fish::fuzzy_select_visible_http_urls_and_open_in_browser
+            __zellij::fuzzy_select_visible_http_urls_and_open_in_browser
             test $status -eq 10; and eval (status function)
 
         case append_urls_at_cursor
-            __zellij.fish::fuzzy_select_visible_http_urls_and_add_at_cursor
+            __zellij::fuzzy_select_visible_http_urls_and_add_at_cursor
             test $status -eq 10; and eval (status function)
 
         case copy_urls_to_clipboard
-            __zellij.fish::fuzzy_select_visible_http_urls_and_copy_to_clipboard
+            __zellij::fuzzy_select_visible_http_urls_and_copy_to_clipboard
             test $status -eq 10; and eval (status function)
 
         case '*'
@@ -410,4 +448,4 @@ function __zellij.fish::fuzzy_select_visible_http_urls_and
     end
 end
 
-bind --user \ez '__zellij.fish::fuzzy_select_visible_http_urls_and'
+bind --user \ez '__zellij::fuzzy_select_visible_http_urls_and'
