@@ -1,4 +1,4 @@
-# NOTE: <kpbaks 2023-08-26 00:24:13> `__zellij::` is used as a namespace prefix for all functions in this file
+# `__zellij::` is used as a namespace prefix for all functions in this file
 # to avoid name collisions and to be "hidden" from the user. That is, it seems very improbable that a user would
 # have any other function or program on their system with the same prefix, leading to some annoyance
 # when tab completing function names in interactive mode.
@@ -20,10 +20,10 @@ function __zellij::on::install --on-event zellij_install
     __zellij::check_dependencies
 end
 
-function __zellij::on::update --on-event zellij_update
-    # Migrate resources, print warnings, and other update logic.
-    # echo
-end
+# function __zellij::on::update --on-event zellij_update
+#     # Migrate resources, print warnings, and other update logic.
+#     # echo
+# end
 
 function __zellij::on::uninstall --on-event zellij_uninstall
     # Erase "private" functions, variables, bindings, and other uninstall logic.
@@ -32,16 +32,14 @@ function __zellij::on::uninstall --on-event zellij_uninstall
             functions --erase $f
         end
     end
-
-    # set | while read var val
-    #     if string match --regex -- "^ZELLIJ_FISH_" $var
-    #         set --erase $var
-    #     end
-    # end
 end
 
+status is-interactive; or return 0
+set --query ZELLIJ; or return 0 # don't do anything if not inside zellij
+__zellij::check_dependencies; or return 0
+
 # abbreviations
-function abbr_zellij
+function __zellij::abbr::zellij
     set -l expansion zellij
     set -l zellij_layout_files_in_cwd
     for f in *
@@ -73,16 +71,13 @@ function __zellij::abbr::list -d "list all abbreviations in zellij.fish"
     string match --regex "^abbr -a.*" <(status filename) | fish_indent --ansi
 end
 
-abbr -a zj --set-cursor --function abbr_zellij
+abbr -a zj --set-cursor -f __zellij::abbr::zellij
 abbr -a za zellij action
 abbr -a ze zellij edit
 abbr -a zef zellij edit --floating
 abbr -a zr zellij run --
 abbr -a zrf zellij run --floating --
 
-status is-interactive; or return 0
-set --query ZELLIJ; or return 0 # don't do anything if not inside zellij
-__zellij::check_dependencies; or return 0
 
 # NOTE: Use ZELLIJ_FISH as a namespace prefix for all variables to avoid name collisions.
 set --query ZELLIJ_FISH_KEYMAP_OPEN_URL; or set --global ZELLIJ_FISH_KEYMAP_OPEN_URL \eo # \eo is alt+o
@@ -113,48 +108,47 @@ function __zellij::get_default_download_cmd
             return 0
         end
     end
-
-    printf "%s: None of the default download commands [ %s ] are installed!\n" (status function) (string join ", " $candidates) >&2
+    printf '%serror%s: none of the default download commands [ %s ] are installed\n' $red $reset (string join " " $candidates) >&2
     return 1
 end
 
-function __zellij::notify --argument-names msg urgency
-    if not command --query notify-send
-        printf "%s%s%s:%s%s%s %error:%s %s\n" \
-            (set_color yellow) (status current-filename) (set_color normal) \
-            (set_color blue) (status current-line-number) (set_color normal) \
-            (set_color red) (set_color normal) \
-            "notify-send not installed." >&2
-        status stack-trace
-        return 1
-    end
-    set -l argc (count $argv)
-    if test $argc -ne 2
-        set urgency low
-    end
+# function __zellij::notify --argument-names msg urgency
+#     if not command --query notify-send
+#         printf "%s%s%s:%s%s%s %error:%s %s\n" \
+#             (set_color yellow) (status current-filename) (set_color normal) \
+#             (set_color blue) (status current-line-number) (set_color normal) \
+#             (set_color red) (set_color normal) \
+#             "notify-send not installed." >&2
+#         status stack-trace
+#         return 1
+#     end
+#     set -l argc (count $argv)
+#     if test $argc -ne 2
+#         set urgency low
+#     end
 
-    set -l urgency_levels low normal critical
-    if not contains -- $urgency $urgency_levels
-        set urgency low
-    end
-    set -l opts \
-        --icon fish \
-        --urgency $urgency \
-        --expire-time=5000 \
-        --app-name fish
+#     set -l urgency_levels low normal critical
+#     if not contains -- $urgency $urgency_levels
+#         set urgency low
+#     end
+#     set -l opts \
+#         --icon fish \
+#         --urgency $urgency \
+#         --expire-time=5000 \
+#         --app-name fish
 
-    set -l errors (command notify-send $opts $ZELLIJ_FISH_TITLE $msg)
+#     set -l errors (command notify-send $opts $ZELLIJ_FISH_TITLE $msg)
 
-    if test $status -ne 0
-        printf "%s%s%s:%s%s%s %error:%s %s\n" \
-            (set_color yellow) (status current-filename) (set_color normal) \
-            (set_color blue) (status current-line-number) (set_color normal) \
-            (set_color red) (set_color normal) \
-            "notify-send failed with status $status." >&2
-        status stack-trace
-        return 1
-    end
-end
+#     if test $status -ne 0
+#         printf "%s%s%s:%s%s%s %error:%s %s\n" \
+#             (set_color yellow) (status current-filename) (set_color normal) \
+#             (set_color blue) (status current-line-number) (set_color normal) \
+#             (set_color red) (set_color normal) \
+#             "notify-send failed with status $status." >&2
+#         status stack-trace
+#         return 1
+#     end
+# end
 
 # TODO: improve and write test cases
 function __zellij::abbreviate_path -a path
@@ -210,16 +204,37 @@ function __zellij::update_tab_name --argument-names last_status
     command zellij action rename-tab (__zellij::abbreviate_path $PWD)
 end
 
+# TODO: document
+set --query zellij_fish_update_tab_name_when_cwd_changes
+or set --universal zellij_fish_update_tab_name_when_cwd_changes 1
+
+if test $zellij_fish_update_tab_name_when_cwd_changes -eq 1
+    function __zellij::hooks::update_tab_name_when_cwd_changes --on-variable PWD
+        __zellij::update_tab_name $status
+    end
+end
+
+# TODO: document
+set --query zellij_fish_update_tab_name_on_preexec
+or set --universal zellij_fish_update_tab_name_on_preexec 0
+
+# TODO: use
+set --query zellij_fish_update_tab_name_on_preexec_blacklist
+or set --universal zellij_fish_update_tab_name_on_preexec_blacklist pwd cd rm mv
+
+if test $zellij_fish_update_tab_name_on_preexec -eq 1
+    # TODO: maybe show the command that is about to be run, but exclude common commands like `pwd`, `cd`, `rm`, `mv`, etc.
+    function __zellij::hooks::update_tab_name_on_preexec --on-event fish_preexec
+        __zellij::update_tab_name $status
+    end
+end
+
 if test $ZELLIJ_FISH_RENAME_TAB_TITLE -eq 1
     __zellij::update_tab_name 0 # want to update the tab name when the shell starts
 
-    function __zellij::update_tab_name_when_PWD_changes --on-variable PWD
-        __zellij::update_tab_name $status
-    end
 
     # function __zellij::update_tab_name_on_postexec --on-event fish_postexec
     # function __zellij::update_tab_name_on_postexec --on-event fish_preexec
-    #     # TODO: maybe show the command that is about to be run, but exclude common commands like `pwd`, `cd`, `rm`, `mv`, etc.
     #     # TODO: when in an editor like `hx` to not show the path component as well for the dir
     #     # $argv
     #     __zellij::update_tab_name $status
@@ -231,62 +246,55 @@ if test $ZELLIJ_FISH_RENAME_TAB_TITLE -eq 1
     # end
 end
 
-function __zellij::get_visible_paths
-    # __zellij::is_inside_zellij; or return
-    set -l tmpf (mktemp)
+set --query zellij_fish_dump_full_screen
+or set --universal zellij_fish_dump_full_screen 0
 
+function __zellij::screen::dump
+    set -l tmpfile (command mktemp)
     set -l options
-    # test $ZELLIJ_FISH_USE_FULL_SCREEN -eq 1; and set --append options --full
-    command zellij action dump-screen $options $tmpf
+    test $zellij_fish_dump_full_screen -eq 1; and set -a options --full
+    command zellij action dump-screen $options $tmpfile
+    command cat $tmpfile
+    command rm $tmpfile
+end
 
+function __zellij::screen::get_visible_paths
     # FIXME: does not capture every true positive yet
-    string match --all --regex --groups-only "(\S+[^/])" <$tmpf \
+    __zellij::screen::dump \
+        | string match --all --regex --groups-only "(\S+[^/])" \
         | while read p
         # Only output paths that exists
         test -e $p; and echo $p
     end \
-        | sort --unique
-
-    command rm $tmpf
+        | command sort --unique
 end
 
-
-function __zellij::get_visible_dirs
-    __zellij::get_visible_paths | while read p
+function __zellij::screen::get_visible_dirs
+    __zellij::screen::get_visible_paths | while read p
         test -d $p; and echo $p
     end
 end
 
-function __zellij::get_visible_files
-    __zellij::get_visible_paths | while read p
+function __zellij::screen::get_visible_files
+    __zellij::screen::get_visible_paths | while read p
         test -f $p; and echo $p
     end
 end
 
-function __zellij::get_visible_http_urls
-    __zellij::is_inside_zellij; or return
-    set -l tmpf (mktemp)
-
-    set -l options
-    test $ZELLIJ_FISH_USE_FULL_SCREEN -eq 1; and set --append options --full
-
-    command zellij action dump-screen $options $tmpf
+function __zellij::screen::get_http_urls
     # TODO: <kpbaks 2023-08-24 20:40:45> maybe strip out query params
     # NOTE: <kpbaks 2023-08-24 11:48:27> not perfect regex, but good enough
     set -l regexp "(https?://[^\s\"^]+)"
-    string match --regex --all --groups-only $regexp <$tmpf
-    command rm $tmpf
+    __zellij::screen::dump \
+        | string match --regex --all --groups-only $regexp
 end
 
-function __zellij::fuzzy_select_visible_http_urls --argument-names prompt
-    __zellij::is_inside_zellij; or return
+function __zellij::screen::fuzzy_select_http_urls -a prompt
+    # if test (count $argv) -eq 0
+    #     set prompt " select with <tab>. "
+    # end
 
-    set -l argc (count $argv)
-    if test (count $argv) -eq 0
-        set prompt " select with <tab>. "
-    end
-
-    # NOTE: "--color='gutter:-1'" is to get a transparent background
+    # "--color='gutter:-1'" is to get a transparent background
     set -l fzf_opts \
         --reverse \
         --border \
@@ -296,7 +304,6 @@ function __zellij::fuzzy_select_visible_http_urls --argument-names prompt
         --cycle \
         --ansi \
         --scroll-off=5 \
-        --select-1 \
         --no-scrollbar \
         --pointer='|>' \
         --marker='✓ ' \
@@ -309,24 +316,17 @@ function __zellij::fuzzy_select_visible_http_urls --argument-names prompt
         --header-first \
         --bind=ctrl-a:select-all
 
-    set -l urls (__zellij::get_visible_http_urls | sort --unique)
-    if test (count $urls) -eq 0
-        set -l msg "no urls found on screen."
-        printf "%swarn:%s %s\n" (set_color yellow) (set_color normal) $msg
-        __zellij::notify $msg
-        return 1
-    end
-    # TODO: colorize each url e.g. color the "https://" part
-    printf "%s\n" $urls | fzf $fzf_opts
-    return 0
+    command fzf $fzf_opts
+    # set -l urls (__zellij::get_visible_http_urls | sort --unique)
+    # if test (count $urls) -eq 0
+    #     return 1
+    # end
+    # # TODO: colorize each url e.g. color the "https://" part
+    # printf "%s\n" $urls | fzf $fzf_opts
+    # return 0
 end
 
-function __zellij::fuzzy_select_visible_http_urls_and_open_in_browser
-    set -l prompt "select url(s) with <tab>. press <enter> to open them in the browser. "
-    set -l selected_urls (__zellij::fuzzy_select_visible_http_urls $prompt)
-    test $status -eq 0; or return 1 # Happens if the there are no urls on the screen
-    test (count $selected_urls) -gt 0; or return 10 # Happens if the user presses <esc> in fzf
-
+function __zellij::screen::fuzzy_select_http_urls_and_open_them_in_browser
     set -l open_cmd
     if command --query xdg-open
         set open_cmd xdg-open
@@ -335,21 +335,23 @@ function __zellij::fuzzy_select_visible_http_urls_and_open_in_browser
     else if command --query flatpak-xdg-open
         set open_cmd flatpak-xdg-open
     else
-        set -l msg "open and xdg-open and flatpak-xdg-open not installed."
-        printf "%serror:%s %s\n" (set_color red) (set_color normal) $msg >&2
-        __zellij::notify $msg
-        printf "%s\n" $selected_urls
+        printf '%serror%s: oneof [ xdg-open open flatpak-xdg-open ] needs to be installed, but none are.\n' (set_color red) (set_color normal) >&2
         return 1
     end
+
+    set -l prompt "select url(s) with <tab>. press <enter> to open them in the browser. "
+    set -l selected_urls (__zellij::screen::fuzzy_select_http_urls $prompt)
+    test $status -eq 0; or return 1 # Happens if the there are no urls on the screen
+    test (count $selected_urls) -gt 0; or return 10 # Happens if the user presses <esc> in fzf
 
     for url in $selected_urls
         command $open_cmd $url
     end
 end
 
-function __zellij::fuzzy_select_visible_http_urls_and_add_at_cursor
+function __zellij::screen::fuzzy_select_http_urls_and_add_them_at_cursor
     set -l prompt "select url(s) with <tab>. press <enter> to add them at the cursor. "
-    set -l selected_urls (__zellij::fuzzy_select_visible_http_urls $prompt)
+    set -l selected_urls (__zellij::screen::fuzzy_select_http_urls $prompt)
     test $status -eq 0; or return 1 # Happens if the there are no urls on the screen
     test (count $selected_urls) -gt 0; or return 10 # Happens if the user presses <esc> in fzf
 
@@ -384,22 +386,20 @@ function __zellij::fuzzy_select_visible_http_urls_and_add_at_cursor
         case '*'
             set -l msg "Unknown default command: $default_cmd"
             printf "%serror:%s %s\n" (set_color red) (set_color normal) $msg >&2
-            __zellij::notify $msg
+            # __zellij::notify $msg
             return 1
     end
 
     commandline --insert $text_to_insert
 end
 
-function __zellij::fuzzy_select_visible_http_urls_and_copy_to_clipboard
+function __zellij::screen::fuzzy_select_http_urls_and_copy_them_to_clipboard
     set -l prompt "select url(s) with <tab>. press <enter> to copy them to the clipboard. "
-    set -l selected_urls (__zellij::fuzzy_select_visible_http_urls $prompt)
+    set -l selected_urls (__zellij::screen::fuzzy_select_http_urls $prompt)
     test $status -eq 0; or return 1 # Happens if the there are no urls on the screen
     test (count $selected_urls) -gt 0; or return 10 # Happens if the user presses <esc> in fzf
 
     printf "%s\n" $selected_urls | fish_clipboard_copy
-    # set -l msg (printf "Copied <b>%d</b> url%s to clipboard." (count $selected_urls) (test (count $selected_urls) -gt 1; and echo "s"; or echo ""))
-    # __zellij::notify $msg
 end
 
 # TODO: <kpbaks 2023-08-26 00:16:39> Check if the keymap is already bound to something else. If it is print a warning.
@@ -409,8 +409,17 @@ end
 # bind --user $ZELLIJ_FISH_KEYMAP_ADD_URL_AT_CURSOR '__zellij::fuzzy_select_visible_http_urls_and_add_at_cursor'
 # bind --user $ZELLIJ_FISH_KEYMAP_COPY_URL_TO_CLIPBOARD '__zellij::fuzzy_select_visible_http_urls_and_copy_to_clipboard'
 
-function __zellij::fuzzy_select_visible_http_urls_and
-    set -l actions open_urls_in_browser append_urls_at_cursor copy_urls_to_clipboard
+function __zellij::screen::fuzzy_select_http_urls_and
+    set -l http_urls (__zellij::screen::get_http_urls)
+    if test (count $http_urls) -eq 0
+        return 1
+    end
+
+    set -l actions \
+        open_urls_in_browser \
+        append_urls_at_cursor \
+        copy_urls_to_clipboard
+
     set -l fzf_opts \
         --reverse \
         --border \
@@ -426,21 +435,28 @@ function __zellij::fuzzy_select_visible_http_urls_and
         --prompt="select which action to perform: "
 
     # TODO: somehow check if are any urls visible. If not print a warning
-    set -l selected_action (printf "%s\n" $actions | fzf $fzf_opts)
+    set -l selected_action (
+        printf "%s\n" $actions \
+        | string replace --all _ " " \
+        | fzf $fzf_opts \
+        | string replace --all " " _
+    )
     commandline --function repaint
     # If user presses <esc> then "go one menu back" instead of quitting totally
     # TODO: make return code 10 less brittle
     switch $selected_action
         case open_urls_in_browser
-            __zellij::fuzzy_select_visible_http_urls_and_open_in_browser
+            printf '%s\n' $http_urls | __zellij::screen::fuzzy_select_http_urls_and_open_them_in_browser
             test $status -eq 10; and eval (status function)
 
         case append_urls_at_cursor
-            __zellij::fuzzy_select_visible_http_urls_and_add_at_cursor
+            printf '%s\n' $http_urls | __zellij::screen::fuzzy_select_http_urls_and_add_them_at_cursor
+            # __zellij::fuzzy_select_visible_http_urls_and_add_at_cursor
             test $status -eq 10; and eval (status function)
 
         case copy_urls_to_clipboard
-            __zellij::fuzzy_select_visible_http_urls_and_copy_to_clipboard
+            printf '%s\n' $http_urls | __zellij::screen::fuzzy_select_http_urls_and_copy_them_to_clipboard
+            # __zellij::fuzzy_select_visible_http_urls_and_copy_to_clipboard
             test $status -eq 10; and eval (status function)
 
         case '*'
@@ -448,4 +464,4 @@ function __zellij::fuzzy_select_visible_http_urls_and
     end
 end
 
-bind --user \ez '__zellij::fuzzy_select_visible_http_urls_and'
+bind --user \ez '__zellij::screen::fuzzy_select_http_urls_and'
